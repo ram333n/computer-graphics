@@ -8,11 +8,11 @@ class Utils:
     POINT_TEXT_Y_MARGIN = 0.05
 
     @staticmethod
-    def angle(edge):
+    def ctg(edge):
         dx = edge.end.x - edge.start.x
         dy = edge.end.y - edge.start.y
 
-        return math.pi/2 if dx == 0.0 else math.pi/2 - math.atan(dy/dx)
+        return dx / dy
 
 
 class Point:
@@ -25,6 +25,9 @@ class Point:
     def __str__(self):
         return f"({self.x}, {self.y})"
 
+    def __eq__(self, other):
+        return self.x == other.x and self.y == other.y
+
     def __lt__(self, other):
         return [self.y, self.x] < [other.y, other.x]
 
@@ -36,9 +39,9 @@ class Point:
 
     def add_edge(self, edge):
         if self == edge.start:
-            bisect.insort(self.out_edges, edge, key=lambda elem: elem.angle)
+            bisect.insort(self.out_edges, edge, key=lambda elem: elem.ctg)
         else:
-            bisect.insort(self.in_edges, edge, key=lambda elem: -elem.angle)
+            bisect.insort(self.in_edges, edge, key=lambda elem: -elem.ctg)
 
 
 class Edge:
@@ -50,11 +53,11 @@ class Edge:
             self.start = end
             self.end = start
 
-        self.angle = Utils.angle(self)
+        self.ctg = Utils.ctg(self)
         self.w = 1
 
     def __str__(self):
-        return f"{self.start} -> {self.end}, angle={self.angle}, w={self.w}"
+        return f"{self.start} -> {self.end}, ctg={self.ctg}, w={self.w}"
 
 
 class Graph:
@@ -99,6 +102,15 @@ class Graph:
                 print(f"'Out' edge: {out_edge}")
 
             print()
+
+        chains = self.__build_chains()
+        print("Chains: ")
+
+        for i in range(len(chains)):
+            print(f"Chain: {i}")
+
+            for e in chains[i]:
+                print(e)
 
     def plot(self, point_to_locate):
         self.__plot_edges()
@@ -158,11 +170,40 @@ class Graph:
             if w_out > w_in:
                 leftmost_edge.w += w_out - w_in
 
+    def __build_chains(self):
+        result = []
+
+        while True:
+            cur_point = self.points[0]
+
+            start_edge = next(
+                (edge for edge in cur_point.out_edges if edge.w > 0),
+                None
+            )
+
+            if start_edge is None:
+                break
+
+            start_edge.w -= 1
+            chain = [start_edge]
+            cur_point = start_edge.end
+
+            while cur_point != self.points[-1]:
+                edge_to_add = next(edge for edge in cur_point.out_edges if edge.w > 0)
+                edge_to_add.w -= 1
+                chain.append(edge_to_add)
+                cur_point = edge_to_add.end
+
+            result.append(chain)
+
+        return result
+
 
 def main():
+    print(Point(2, 1) == Point(2, 2))
     graph = Graph("points_1.txt", "edges_1.txt")
     graph.print()
-    graph.plot(Point(2.5, 4))
+    # graph.plot(Point(2.5, 4))
 
 
 if __name__ == "__main__":
