@@ -3,9 +3,16 @@ import bisect
 import matplotlib.pyplot as plt
 
 
-class Constants:
-    POINT_TEXT_X_MARGIN = 0.03
-    POINT_TEXT_Y_MARGIN = 0.03
+class Utils:
+    POINT_TEXT_X_MARGIN = 0.05
+    POINT_TEXT_Y_MARGIN = 0.05
+
+    @staticmethod
+    def angle(edge):
+        dx = edge.end.x - edge.start.x
+        dy = edge.end.y - edge.start.y
+
+        return math.pi/2 if dx == 0.0 else math.pi/2 - math.atan(dy/dx)
 
 
 class Point:
@@ -28,9 +35,10 @@ class Point:
         return sum(edge.w for edge in self.out_edges)
 
     def add_edge(self, edge):
-        end_point = edge.end
-        array_to_insert = self.in_edges if end_point == self else self.out_edges
-        bisect.insort(array_to_insert, edge, key=lambda elem: elem.angle)
+        if self == edge.start:
+            bisect.insort(self.out_edges, edge, key=lambda elem: elem.angle)
+        else:
+            bisect.insort(self.in_edges, edge, key=lambda elem: -elem.angle)
 
 
 class Edge:
@@ -42,11 +50,8 @@ class Edge:
             self.start = end
             self.end = start
 
-        dy = self.end.y - self.start.y
-        dx = self.end.x - self.start.x
-        self.angle = math.pi / 2 - math.atan2(dy, dx)
-
-        self.w = 0
+        self.angle = Utils.angle(self)
+        self.w = 1
 
     def __str__(self):
         return f"{self.start} -> {self.end}, angle={self.angle}, w={self.w}"
@@ -83,6 +88,7 @@ class Graph:
             to_point.add_edge(edge_to_add)
 
     def print(self):
+        self.__balance()
         for point in self.points:
             print(f"Point: {point}")
 
@@ -105,8 +111,8 @@ class Graph:
             plt.plot(point.x, point.y, "ok")
 
             plt.text(
-                point.x + Constants.POINT_TEXT_X_MARGIN,
-                point.y + Constants.POINT_TEXT_Y_MARGIN,
+                point.x + Utils.POINT_TEXT_X_MARGIN,
+                point.y + Utils.POINT_TEXT_Y_MARGIN,
                 i
             )
 
@@ -120,11 +126,43 @@ class Graph:
                 "-b"
             )
 
+            text_x = (edge.start.x + edge.end.x) / 2
+            text_y = (edge.start.y + edge.end.y) / 2
+
+            plt.text(
+                text_x,
+                text_y,
+                f"w={edge.w}",
+            )
+
+    def __balance(self):
+        self.__forward_balance()
+        self.__backward_balance()
+
+    def __forward_balance(self):
+        for i in range(1, len(self.points) - 1):
+            point = self.points[i]
+            w_in = point.w_in()
+            leftmost_edge = point.out_edges[0]
+
+            if w_in > len(point.out_edges):
+                leftmost_edge.w = w_in - len(point.out_edges) + 1
+
+    def __backward_balance(self):
+        for i in range(len(self.points) - 1, 0, -1):
+            point = self.points[i]
+            w_out = point.w_out()
+            w_in = point.w_in()
+            leftmost_edge = point.in_edges[0]
+
+            if w_out > w_in:
+                leftmost_edge.w += w_out - w_in
+
 
 def main():
-    graph = Graph("points.txt", "edges.txt")
+    graph = Graph("points_1.txt", "edges_1.txt")
     graph.print()
-    graph.plot(Point(2, 2.7))
+    graph.plot(Point(2.5, 4))
 
 
 if __name__ == "__main__":
