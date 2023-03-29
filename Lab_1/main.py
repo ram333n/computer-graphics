@@ -60,6 +60,38 @@ class Edge:
         return f"{self.start} -> {self.end}, ctg={self.ctg}, w={self.w}"
 
 
+class Chain:
+    def __init__(self, edges):
+        self.edges = edges
+
+    def localize_point_by_y(self, point):
+        if point.y > self.edges[-1].end.y or point.y < self.edges[0].start.y:
+            return None
+
+        low = 0
+        high = len(self.edges) - 1
+        result = 0
+        is_found = False
+
+        while not is_found:
+            mid = int((high + low) / 2)
+            edge = self.edges[mid]
+
+            if edge.start.y <= point.y <= edge.end.y:
+                is_found = True
+                result = mid
+            elif point.y > edge.end.y:
+                low = mid + 1
+            else:
+                high = mid - 1
+
+        return self.edges[result]
+
+    def print(self):
+        for edge in self.edges:
+            print(edge)
+
+
 class Graph:
     def __init__(self, points_file, edges_file):
         self.points = []
@@ -109,8 +141,8 @@ class Graph:
         for i in range(len(chains)):
             print(f"Chain: {i}")
 
-            for e in chains[i]:
-                print(e)
+            chains[i].print()
+            print("LOCALIZE POINT" + str(chains[i].localize_point_by_y(Point(-3, 8))))
 
     def plot(self, point_to_locate):
         self.__plot_edges()
@@ -185,25 +217,27 @@ class Graph:
                 break
 
             start_edge.w -= 1
-            chain = [start_edge]
+            chain = Chain([start_edge])
             cur_point = start_edge.end
 
             while cur_point != self.points[-1]:
                 edge_to_add = next(edge for edge in cur_point.out_edges if edge.w > 0)
                 edge_to_add.w -= 1
-                chain.append(edge_to_add)
+                chain.edges.append(edge_to_add)
                 cur_point = edge_to_add.end
 
             result.append(chain)
 
         return result
 
+    # def __localize_point(self, chains):
+
 
 def main():
     print(Point(2, 1) == Point(2, 2))
     graph = Graph("points_1.txt", "edges_1.txt")
     graph.print()
-    # graph.plot(Point(2.5, 4))
+    graph.plot(Point(2.5, 4))
 
 
 if __name__ == "__main__":
