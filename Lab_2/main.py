@@ -133,6 +133,7 @@ class RangeSearcher:
     def __print_result(self):
         print(f"Count: {len(self.result)}")
         print("Result:")
+
         for point in self.result:
             print(f"({point.x}, {point.y})")
 
@@ -154,6 +155,12 @@ def main():
         Point(0.5, 3.5),
         Point(1.5, 3.5),
         Point(0.5, 3.0),
+        Point(-2.5, 1),
+        Point(12.5, 3),
+        Point(7.5, 3),
+        Point(7.5, 4),
+        Point(10.5, 0.5),
+        Point(10.5, 2)
     ]
 
     range_to_search = Rectangle(Point(0.5, 3.5), 3, 10)
