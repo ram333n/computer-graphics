@@ -1,4 +1,3 @@
-import copy
 import matplotlib.pyplot as plt
 
 
@@ -7,11 +6,8 @@ class Point:
         self.x = x
         self.y = y
 
-    def __eq__(self, other):
-        return self.x == other.x and self.y == other.y
-
-    def __hash__(self):
-        return hash((self.x, self.y))
+    def get_coord_by_axis(self, axis):
+        return self.x if axis == 0 else self.y
 
 
 class Rectangle:
@@ -24,20 +20,11 @@ class Rectangle:
         return 0 <= point.x - self.vertex.x <= self.width \
                and 0 <= self.vertex.y - point.y <= self.height
 
-    def intersects(self, other):
-        return not (
-            self.vertex.x + self.width < other.vertex.x
-            or self.vertex.x > other.vertex.x + other.width
-            or self.vertex.y < other.vertex.y - other.height
-            or self.vertex.y - self.height > other.vertex.y
-        )
+    def get_range_by_axis(self, axis):
+        if axis == 0:
+            return self.vertex.x, self.vertex.x + self.width
 
-    def contains_rectangle(self, other):
-        return self.intersects(other) \
-               and self.vertex.x <= other.vertex.x \
-               and self.vertex.y >= other.vertex.y \
-               and self.width >= other.width \
-               and self.height >= other.height
+        return self.vertex.y - self.height, self.vertex.y
 
     def plot(self, color):
         # draw rectangle clockwise
@@ -61,80 +48,39 @@ class Rectangle:
 
 
 class Node:
-    def __init__(self, data, region):
-        self.data = data
-        self.region = region
-        self.left = None
-        self.right = None
+    def __init__(self, point, line, axis, left=None, right=None):
+        self.point = point
+        self.line = line
+        self.axis = axis
+        self.left = left
+        self.right = right
 
     def is_leaf(self):
-        return self.data is not None
-
+        return self.left is None and self.right is None
 
 
 # 2-d tree
-# TODO: rewrite logic of tree
 class Tree:
-    def __init__(self, points, border):
-        self.root = self.__build_tree(points, border, 0)
+    def __init__(self, points):
+        self.root = self.__build_tree(points, 0)
 
-    def __build_tree(self, points, border, depth):
-        if len(points) == 1:
-            return Node(points[0], border)
-        else:
-            # data to create left subtree
-            points_1 = {}
-            region_1 = None
+    def __build_tree(self, points, depth):
+        if len(points) == 0:
+            return None
 
-            # data to create right subtree
-            points_2 = {}
-            region_2 = None
+        axis = depth % 2
 
-            mid_idx = len(points) // 2 - 1 # TODO: investigate about  - 1
+        points.sort(key=lambda p: p.get_coord_by_axis(axis))
+        mid_idx = len(points) // 2
+        median = points[mid_idx].get_coord_by_axis(axis)
 
-            if depth % 2 == 0:
-                sorted_points = sorted(points, key=lambda p: p.x)
-                median = sorted_points[mid_idx].x
-
-                points_1 = sorted_points[:mid_idx + 1]
-                region_1 = Rectangle(
-                    border.vertex,
-                    border.height,
-                    median - border.vertex.x
-                )
-
-                points_2 = sorted_points[mid_idx + 1:]
-                region_2 = Rectangle(
-                    Point(median, border.vertex.y),
-                    border.height,
-                    border.width - (median - border.vertex.x)
-                )
-            else:
-                sorted_points = sorted(points, key=lambda p: p.y)
-                median = sorted_points[mid_idx].y
-
-                points_1 = sorted_points[:mid_idx + 1]
-                region_1 = Rectangle(
-                    Point(border.vertex.x, median),
-                    border.height - (border.vertex.y - median),
-                    border.width
-                )
-
-                points_2 = sorted_points[mid_idx + 1:]
-                region_2 = Rectangle(
-                    border.vertex,
-                    border.height - median,
-                    border.width
-                )
-
-            left_node = self.__build_tree(points_1, region_1, depth + 1)
-            right_node = self.__build_tree(points_2, region_2, depth + 1)
-
-            result = Node(None, border)
-            result.left = left_node
-            result.right = right_node
-
-            return result
+        return Node(
+            points[mid_idx],
+            median,
+            axis,
+            self.__build_tree(points[:mid_idx], depth + 1),
+            self.__build_tree(points[mid_idx + 1:], depth + 1)
+        )
 
     def search(self, range_to_search):
         result = []
@@ -143,87 +89,52 @@ class Tree:
         return result
 
     def __search(self, node, range_to_search, output):
-        if node.is_leaf():
-            if range_to_search.contains_point(node.data):
-                output.append(node.data)
-        else:
-            if range_to_search.contains_rectangle(node.left.region):
-                self.__report_subtree(node.left, output)
-            else:
-                if node.left.region.intersects(range_to_search):
-                    self.__search(node.left, range_to_search, output)
+        if node is None:
+            return
 
-            if range_to_search.contains_rectangle(node.right.region):
-                self.__report_subtree(node.right, output)
-            else:
-                if node.right.region.intersects(range_to_search):
-                    self.__search(node.right, range_to_search, output)
+        left, right = range_to_search.get_range_by_axis(node.axis)
 
-    def __report_subtree(self, node, output):
-        if node.is_leaf():
-            output.append(node.data)
-        else:
-            self.__report_subtree(node.left, output)
-            self.__report_subtree(node.right, output)
+        if range_to_search.contains_point(node.point):
+            output.append(node.point)
+
+        if left < node.line:
+            self.__search(node.left, range_to_search, output)
+
+        if node.line < right:
+            self.__search(node.right, range_to_search, output)
 
 
 class RangeSearcher:
     def __init__(self, points, range_to_search):
         self.points = points
         self.range_to_search = range_to_search
-        self.border = self.__define_border()
-        self.tree = Tree(points, self.border)
+        self.tree = Tree(points)
         self.result = []
-
-    def __define_border(self):
-        iterator = iter(self.points)
-        left_border = next(iterator)
-        right_border = copy.deepcopy(left_border)
-        top_border = copy.deepcopy(left_border)
-        bottom_border = copy.deepcopy(left_border)
-
-        for point in iterator:
-            if left_border.x > point.x:
-                left_border = point
-
-            if right_border.x < point.x:
-                right_border = point
-
-            if top_border.y < point.y:
-                top_border = point
-
-            if bottom_border.y > point.y:
-                bottom_border = point
-
-        # just to handle degeneracy, when points are on the same line
-        padding_value = 1
-        vertex_x = left_border.x - padding_value
-        vertex_y = top_border.y + padding_value
-        vertex = Point(vertex_x, vertex_y)
-
-        height = vertex_y - bottom_border.y + padding_value
-        width = right_border.x - left_border.x + 2 * padding_value
-
-        return Rectangle(vertex, height, width)
 
     def demo(self):
         self.__plot_input_points()
         self.__plot_rectangles()
         self.result = self.tree.search(self.range_to_search)
         self.__plot_result_points()
+        self.__print_result()
         plt.show()
 
     def __plot_input_points(self):
         for point in self.points:
-            plt.plot(point.x, point.y, "ob")
+            plt.scatter(point.x, point.y, color="blue")
 
     def __plot_rectangles(self):
         self.range_to_search.plot("r")
-        self.border.plot("b")
 
     def __plot_result_points(self):
-        for point in self.points:
-            plt.plot(point.x, point.y, "oy")
+        for point in self.result:
+            plt.scatter(point.x, point.y, color="orange")
+
+    def __print_result(self):
+        print(f"Count: {len(self.result)}")
+        print("Result:")
+        for point in self.result:
+            print(f"({point.x}, {point.y})")
 
 
 def main():
@@ -239,7 +150,10 @@ def main():
         Point(12.5, -0.5),
         Point(-4, 4),
         Point(6, 1),
-        Point(7, 1.5)
+        Point(7, 1.5),
+        Point(0.5, 3.5),
+        Point(1.5, 3.5),
+        Point(0.5, 3.0),
     ]
 
     range_to_search = Rectangle(Point(0.5, 3.5), 3, 10)
