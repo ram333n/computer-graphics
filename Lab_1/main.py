@@ -265,20 +265,30 @@ class Graph:
            self.chains[-1].get_point_direction(point) == 1:
             return []
 
-        for i in range(1, len(self.chains)):
-            left_chain_direction = self.chains[i - 1].get_point_direction(point)
+        low = 0
+        high = len(self.chains) - 1
 
-            if left_chain_direction == 0:
-                return [self.chains[i - 1]]
+        while high - low > 1:
+            mid = (low + high) // 2
+            current_chain_direction = self.chains[mid].get_point_direction(point)
 
-            right_chain_direction = self.chains[i].get_point_direction(point)
+            if current_chain_direction == 0:
+                return [self.chains[mid]]
+            elif current_chain_direction == 1:
+                low = mid
+            else:
+                high = mid
 
-            if right_chain_direction == 0:
-                return [self.chains[i]]
-            elif left_chain_direction == 1 and right_chain_direction == -1:
-                return [self.chains[i - 1], self.chains[i]]
+        if self.chains[low].get_point_direction(point) == 0:
+            return [self.chains[low]]
+        elif self.chains[high].get_point_direction(point) == 0:
+            return [self.chains[high]]
 
-        return []
+        return [self.chains[low], self.chains[high]]
+
+    def __between_chains(self, point, lhs_chain, rhs_chain):
+        return lhs_chain.get_point_direction(point) == 1 \
+                and rhs_chain.get_point_direction(point) == -1
 
     def __inform_about_localization(self, chains):
         if len(chains) == 0:
@@ -302,7 +312,7 @@ class Graph:
 
 def main():
     graph = Graph("points_1.txt", "edges_1.txt")
-    graph.demo(Point(4, -6))
+    graph.demo(Point(3, 3))
 
 
 if __name__ == "__main__":
