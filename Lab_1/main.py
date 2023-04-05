@@ -1,4 +1,3 @@
-import math
 import bisect
 import matplotlib.pyplot as plt
 
@@ -59,10 +58,34 @@ class Edge:
     def __str__(self):
         return f"{self.start} -> {self.end}, ctg={self.ctg}, w={self.w}"
 
+    def get_point_direction(self, point):
+        x_1 = self.start.x
+        x_2 = self.end.x
+        x_3 = point.x
+
+        y_1 = self.start.y
+        y_2 = self.end.y
+        y_3 = point.y
+
+        det = x_1 * y_2 + x_3 * y_1 + x_2 * y_3 - x_3 * y_2 - x_2 * y_1 - x_1 * y_3
+
+        if det == 0:
+            return 0  # lies on the edge
+
+        return -1 if det > 0 else 1  # -1 - left side, 1 - right side
+
 
 class Chain:
     def __init__(self, edges):
         self.edges = edges
+
+    def get_point_direction(self, point):
+        edge = self.localize_point_by_y(point)
+
+        if edge is None:
+            return None
+
+        return edge.get_point_direction(point)
 
     def localize_point_by_y(self, point):
         if point.y > self.edges[-1].end.y or point.y < self.edges[0].start.y:
@@ -74,7 +97,7 @@ class Chain:
         is_found = False
 
         while not is_found:
-            mid = int((high + low) / 2)
+            mid = (high + low) // 2
             edge = self.edges[mid]
 
             if edge.start.y <= point.y <= edge.end.y:
@@ -96,6 +119,7 @@ class Graph:
     def __init__(self, points_file, edges_file):
         self.points = []
         self.edges = []
+        self.chains = []
 
         points_strs = open(points_file).read().split()
         edges_strs = open(edges_file).read().split()
@@ -122,62 +146,15 @@ class Graph:
             from_point.add_edge(edge_to_add)
             to_point.add_edge(edge_to_add)
 
-    def print(self):
+    def demo(self, point_to_locate):
         self.__balance()
-        for point in self.points:
-            print(f"Point: {point}")
-
-            for in_edge in point.in_edges:
-                print(f"'In' edge: {in_edge}")
-
-            for out_edge in point.out_edges:
-                print(f"'Out' edge: {out_edge}")
-
-            print()
-
-        chains = self.__build_chains()
-        print("Chains: ")
-
-        for i in range(len(chains)):
-            print(f"Chain: {i}")
-
-            chains[i].print()
-            print("LOCALIZE POINT" + str(chains[i].localize_point_by_y(Point(-3, 8))))
-
-    def plot(self, point_to_locate):
+        self.__print_graph()
         self.__plot_edges()
         self.__plot_points(point_to_locate)
+        self.__build_chains()
+        self.__print_chains()
+
         plt.show()
-
-    def __plot_points(self, point_to_locate):
-        for i in range(len(self.points)):
-            point = self.points[i]
-            plt.plot(point.x, point.y, "ok")
-
-            plt.text(
-                point.x + Utils.POINT_TEXT_X_MARGIN,
-                point.y + Utils.POINT_TEXT_Y_MARGIN,
-                i
-            )
-
-        plt.plot(point_to_locate.x, point_to_locate.y, "or")
-
-    def __plot_edges(self):
-        for edge in self.edges:
-            plt.plot(
-                [edge.start.x, edge.end.x],
-                [edge.start.y, edge.end.y],
-                "-b"
-            )
-
-            text_x = (edge.start.x + edge.end.x) / 2
-            text_y = (edge.start.y + edge.end.y) / 2
-
-            plt.text(
-                text_x,
-                text_y,
-                f"w={edge.w}",
-            )
 
     def __balance(self):
         self.__forward_balance()
@@ -202,9 +179,37 @@ class Graph:
             if w_out > w_in:
                 leftmost_edge.w += w_out - w_in
 
-    def __build_chains(self):
-        result = []
+    def __plot_edges(self):
+        for edge in self.edges:
+            plt.plot(
+                [edge.start.x, edge.end.x],
+                [edge.start.y, edge.end.y],
+                "-b"
+            )
 
+            text_x = (edge.start.x + edge.end.x) / 2
+            text_y = (edge.start.y + edge.end.y) / 2
+
+            plt.text(
+                text_x,
+                text_y,
+                f"w={edge.w}",
+            )
+
+    def __plot_points(self, point_to_locate):
+        for i in range(len(self.points)):
+            point = self.points[i]
+            plt.plot(point.x, point.y, "ok")
+
+            plt.text(
+                point.x + Utils.POINT_TEXT_X_MARGIN,
+                point.y + Utils.POINT_TEXT_Y_MARGIN,
+                i
+            )
+
+        plt.plot(point_to_locate.x, point_to_locate.y, "or")
+
+    def __build_chains(self):
         while True:
             cur_point = self.points[0]
 
@@ -221,23 +226,56 @@ class Graph:
             cur_point = start_edge.end
 
             while cur_point != self.points[-1]:
-                edge_to_add = next(edge for edge in cur_point.out_edges if edge.w > 0)
+                edge_to_add = next(
+                    edge for edge in cur_point.out_edges if edge.w > 0)
                 edge_to_add.w -= 1
                 chain.edges.append(edge_to_add)
                 cur_point = edge_to_add.end
 
-            result.append(chain)
+            self.chains.append(chain)
 
-        return result
+    def __print_graph(self):
+        for point in self.points:
+            print(f"Point: {point}")
 
-    # def __localize_point(self, chains):
+            for in_edge in point.in_edges:
+                print(f"'In' edge: {in_edge}")
+
+            for out_edge in point.out_edges:
+                print(f"'Out' edge: {out_edge}")
+
+    def __print_chains(self):
+        print("Chains: ")
+
+        for i in range(len(self.chains)):
+            print(f"Chain: {i}")
+
+            self.chains[i].print()
+            loc_edge = self.chains[i].localize_point_by_y(Point(-3, 0))
+            print("LOCALIZE POINT " + str(
+                self.chains[i].localize_point_by_y(Point(-3, 0))))
+            print(loc_edge.get_point_direction(Point(-3, 1)))
+
+    def __localize_point(self, point):
+        if self.chains[0].get_point_direction(point) is None \
+            or (self.chains[0].get_point_direction(point) == -1
+                and self.chains[-1].get_point_direction(point) == 1):
+            return []
+
+        for i in range(len(self.chains)):
+            direction = self.chains[i].get_point_direction(point)
+
+            if direction == 0:
+                return [self.chains[i]]
+            elif direction == 1:
+                return [self.chains[i - 1], self.chains[i]]
+
+        return []
 
 
 def main():
-    print(Point(2, 1) == Point(2, 2))
     graph = Graph("points_1.txt", "edges_1.txt")
-    graph.print()
-    graph.plot(Point(2.5, 4))
+    graph.demo(Point(2.5, 4))
 
 
 if __name__ == "__main__":
