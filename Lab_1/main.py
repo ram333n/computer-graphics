@@ -76,18 +76,19 @@ class Edge:
 
 
 class Chain:
-    def __init__(self, edges):
+    def __init__(self, edges, number):
         self.edges = edges
+        self.number = number
 
     def get_point_direction(self, point):
-        edge = self.localize_point_by_y(point)
+        edge = self.__localize_point_by_y(point)
 
         if edge is None:
             return None
 
         return edge.get_point_direction(point)
 
-    def localize_point_by_y(self, point):
+    def __localize_point_by_y(self, point):
         if point.y > self.edges[-1].end.y or point.y < self.edges[0].start.y:
             return None
 
@@ -154,6 +155,10 @@ class Graph:
         self.__build_chains()
         self.__print_chains()
 
+        borders = self.__localize_point(point_to_locate)
+        self.__inform_about_localization(borders)
+        self.__plot_result_chains(borders)
+
         plt.show()
 
     def __balance(self):
@@ -210,6 +215,8 @@ class Graph:
         plt.plot(point_to_locate.x, point_to_locate.y, "or")
 
     def __build_chains(self):
+        chains_counter = 0
+
         while True:
             cur_point = self.points[0]
 
@@ -222,7 +229,7 @@ class Graph:
                 break
 
             start_edge.w -= 1
-            chain = Chain([start_edge])
+            chain = Chain([start_edge], chains_counter)
             cur_point = start_edge.end
 
             while cur_point != self.points[-1]:
@@ -233,6 +240,7 @@ class Graph:
                 cur_point = edge_to_add.end
 
             self.chains.append(chain)
+            chains_counter += 1
 
     def __print_graph(self):
         for point in self.points:
@@ -249,33 +257,52 @@ class Graph:
 
         for i in range(len(self.chains)):
             print(f"Chain: {i}")
-
             self.chains[i].print()
-            loc_edge = self.chains[i].localize_point_by_y(Point(-3, 0))
-            print("LOCALIZE POINT " + str(
-                self.chains[i].localize_point_by_y(Point(-3, 0))))
-            print(loc_edge.get_point_direction(Point(-3, 1)))
 
     def __localize_point(self, point):
-        if self.chains[0].get_point_direction(point) is None \
-            or (self.chains[0].get_point_direction(point) == -1
-                and self.chains[-1].get_point_direction(point) == 1):
+        if self.chains[0].get_point_direction(point) is None or \
+           self.chains[0].get_point_direction(point) == -1 or \
+           self.chains[-1].get_point_direction(point) == 1:
             return []
 
-        for i in range(len(self.chains)):
-            direction = self.chains[i].get_point_direction(point)
+        for i in range(1, len(self.chains)):
+            left_chain_direction = self.chains[i - 1].get_point_direction(point)
 
-            if direction == 0:
+            if left_chain_direction == 0:
+                return [self.chains[i - 1]]
+
+            right_chain_direction = self.chains[i].get_point_direction(point)
+
+            if right_chain_direction == 0:
                 return [self.chains[i]]
-            elif direction == 1:
+            elif left_chain_direction == 1 and right_chain_direction == -1:
                 return [self.chains[i - 1], self.chains[i]]
 
         return []
 
+    def __inform_about_localization(self, chains):
+        if len(chains) == 0:
+            print("The point is outside graph")
+            return
+
+        if len(chains) == 1:
+            print(f"The point is on the chain: {chains[0].number}")
+        else:
+            print(f"The point is between chains: {chains[0].number} and {chains[1].number}")
+
+    def __plot_result_chains(self, chains):
+        for chain in chains:
+            for edge in chain.edges:
+                plt.plot(
+                    [edge.start.x, edge.end.x],
+                    [edge.start.y, edge.end.y],
+                    "-y"
+                )
+
 
 def main():
     graph = Graph("points_1.txt", "edges_1.txt")
-    graph.demo(Point(2.5, 4))
+    graph.demo(Point(4, -6))
 
 
 if __name__ == "__main__":
