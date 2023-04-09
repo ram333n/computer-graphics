@@ -7,9 +7,9 @@ class Utils:
     POINT_TEXT_Y_MARGIN = 0.05
 
     @staticmethod
-    def ctg(edge):
-        dx = edge.end.x - edge.start.x
-        dy = edge.end.y - edge.start.y
+    def ctg(start, end):
+        dx = end.x - start.x
+        dy = end.y - start.y
 
         return dx / dy
 
@@ -52,7 +52,7 @@ class Edge:
             self.start = end
             self.end = start
 
-        self.ctg = Utils.ctg(self)
+        self.ctg = Utils.ctg(start, end)
         self.w = 1
 
         start.add_edge(self)
@@ -119,11 +119,6 @@ class Chain:
             print(edge)
 
 
-def __between_chains(point, lhs_chain, rhs_chain):
-    return lhs_chain.get_point_direction(point) == 1 \
-            and rhs_chain.get_point_direction(point) == -1
-
-
 class Graph:
     def __init__(self, points_file, edges_file):
         self.points = []
@@ -179,10 +174,10 @@ class Graph:
         return True
 
     def __regularize(self):
-        self.__forward_regularize()
-        self.__backward_regularize()
+        self.__regularize_forward()
+        self.__regularize_backward()
 
-    def __forward_regularize(self):
+    def __regularize_forward(self):
         status_edges = self.points[0].out_edges[:]
         status_points = [self.points[0]] * (len(status_edges) + 1)
 
@@ -190,45 +185,37 @@ class Graph:
             cur_point = self.points[i]
 
             if len(cur_point.in_edges) == 0:
-                if len(status_edges) != 0:
-                    idx = self.__localize_point_in_status(status_edges, cur_point)
+                idx = self.__localize_point_in_status(status_edges, cur_point)
 
-                    edge_to_append = Edge(cur_point, status_points[idx])
-                    print(f"Added:\n{edge_to_append}")
-                    self.edges.append(edge_to_append)
+                edge_to_append = Edge(cur_point, status_points[idx])
+                print(f"Added:\n{edge_to_append}")
+                self.edges.append(edge_to_append)
 
-                    status_edges = \
-                        status_edges[:idx] \
-                        + cur_point.out_edges \
-                        + status_edges[idx:]
+                status_edges = \
+                    status_edges[:idx] \
+                    + cur_point.out_edges \
+                    + status_edges[idx:]
 
-                    status_points = \
-                        status_points[:idx] \
-                        + [cur_point] * (len(cur_point.out_edges) + 1) \
-                        + status_points[:idx + 1]
-                else:
-                    edge_to_append = Edge(cur_point, status_points[0])
-                    print(f"Added:\n{edge_to_append}")
-                    self.edges.append(edge_to_append)
-
-                    status_edges = cur_point.out_edges[:]
-                    status_points = [cur_point] * (len(status_edges) + 1)
+                status_points = \
+                    status_points[:idx] \
+                    + [cur_point] * (len(cur_point.out_edges) + 1) \
+                    + status_points[idx + 1:]
             else:
                 idx = status_edges.index(cur_point.in_edges[0])
                 status_edges = \
                     status_edges[:idx] \
                     + cur_point.out_edges \
-                    + status_edges[:idx + len(cur_point.in_edges)]
+                    + status_edges[idx + len(cur_point.in_edges):]
 
                 status_points = \
                     status_points[:idx] \
                     + [cur_point] * (len(cur_point.out_edges) + 1) \
-                    + status_points[:idx + len(cur_point.in_edges) + 1]
+                    + status_points[idx + len(cur_point.in_edges) + 1:]
 
                 if len(status_points) == 0:
                     status_points.append(cur_point)
 
-    def __backward_regularize(self):
+    def __regularize_backward(self):
         status_edges = self.points[-1].in_edges[:]
         status_points = [self.points[-1]] * (len(status_edges) + 1)
 
@@ -236,29 +223,21 @@ class Graph:
             cur_point = self.points[i]
 
             if len(cur_point.out_edges) == 0:
-                if len(status_edges) != 0:
-                    idx = self.__localize_point_in_status(status_edges, cur_point)
+                idx = self.__localize_point_in_status(status_edges, cur_point)
 
-                    edge_to_append = Edge(cur_point, status_points[idx])
-                    print(f"Added:\n{edge_to_append}")
-                    self.edges.append(edge_to_append)
+                edge_to_append = Edge(cur_point, status_points[idx])
+                print(f"Added:\n{edge_to_append}")
+                self.edges.append(edge_to_append)
 
-                    status_edges = \
-                        status_edges[:idx] \
-                        + cur_point.in_edges \
-                        + status_edges[idx:]
+                status_edges = \
+                    status_edges[:idx] \
+                    + cur_point.in_edges \
+                    + status_edges[idx:]
 
-                    status_points = \
-                        status_points[:idx] \
-                        + [cur_point] * (len(cur_point.in_edges) + 1) \
-                        + status_points[idx + 1:]
-                else:
-                    edge_to_append = Edge(cur_point, status_points[0])
-                    print(f"Added:\n{edge_to_append}")
-                    self.edges.append(edge_to_append)
-
-                    status_edges = cur_point.in_edges[:]
-                    status_points = [cur_point] * (len(status_edges) + 1)
+                status_points = \
+                    status_points[:idx] \
+                    + [cur_point] * (len(cur_point.in_edges) + 1) \
+                    + status_points[idx + 1:]
             else:
                 idx = status_edges.index(cur_point.out_edges[0])
 
@@ -276,6 +255,9 @@ class Graph:
                     status_points.append(cur_point)
 
     def __localize_point_in_status(self, status_edges, point):
+        if len(status_edges) == 0:
+            return 0
+
         low = 0
         high = len(status_edges) - 1
 
@@ -296,10 +278,10 @@ class Graph:
         return high
 
     def __balance(self):
-        self.__forward_balance()
-        self.__backward_balance()
+        self.__balance_forward()
+        self.__balance_backward()
 
-    def __forward_balance(self):
+    def __balance_forward(self):
         for i in range(1, len(self.points) - 1):
             point = self.points[i]
             w_in = point.w_in()
@@ -308,7 +290,7 @@ class Graph:
             if w_in > len(point.out_edges):
                 leftmost_edge.w = w_in - len(point.out_edges) + 1
 
-    def __backward_balance(self):
+    def __balance_backward(self):
         for i in range(len(self.points) - 1, 0, -1):
             point = self.points[i]
             w_out = point.w_out()
@@ -441,10 +423,8 @@ class Graph:
 
 
 def main():
-    arr = [0, 1, 2, 3, 4, 5, 6]
-    print(arr[:1] + [-1, -2] + arr[2:])
     graph = Graph("points_1.txt", "edges_1.txt")
-    graph.demo(Point(1.5, -5))
+    graph.demo(Point(0.5, 6))
 
 
 if __name__ == "__main__":
