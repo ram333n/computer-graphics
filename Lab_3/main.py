@@ -124,6 +124,97 @@ class Event:
     def __lt__(self, other):
         return self.point < other.point
 
+class Node:
+    def __init__(self, value, left=None, right=None, parent=None):
+        self.value = value
+        self.left = left
+        self.right = right
+        self.parent = parent
+
+
+class BSTree:
+    def __init__(self):
+        self.root = None
+
+    def insert(self, value, key):
+        to_insert = Node(value)
+        current = self.root
+        pos_to_insert = None
+
+        while current is not None:
+            pos_to_insert = current
+
+            if key(value) < key(current):
+                current = current.left
+            else:
+                current = current.right
+
+        to_insert.parent = pos_to_insert
+
+        if pos_to_insert is None:
+            self.root = to_insert
+        else:
+            if key(value) < key(pos_to_insert.value):
+                pos_to_insert.left = to_insert
+            else:
+                pos_to_insert.right = to_insert
+
+        return to_insert
+
+    def remove(self, node):
+
+
+    def __transplant(self, first, second):
+        if first.parent is None:
+            self.root = second
+        elif first == first.parent.left:
+            first.parent.left = second
+        else:
+            first.parent.right = second
+
+        second.parent = first.parent
+
+    def successor(self, node):
+        if node.right is not None:
+            return self.__minimum(node.right)
+
+        current = node.parent
+
+        while current is not None and node == current.right:
+            node = current
+            current = current.parent
+
+        return current
+
+    def __minimum(self, node):
+        current = node
+
+        while current is not None:
+            current = current.left
+
+        return current
+
+    def predecessor(self, node):
+        if node.left is not None:
+            return self.__maximum(node.left)
+
+        current = node.parent
+
+        while current is not None and node == current.left:
+            node = current
+            current = current.parent
+
+        return current
+
+    def __maximum(self, node):
+        current = node
+
+        while current is not None:
+            current = current.right
+
+        return current
+
+
 # TODO: impl it
 class StatusStructure:
     # def __init__(self):
