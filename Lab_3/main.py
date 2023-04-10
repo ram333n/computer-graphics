@@ -18,6 +18,9 @@ class Point:
     def __lt__(self, other):
         return [self.x, self.y] < [other.x, other.y]
 
+    def __eq__(self, other):
+        return self.x == other.x and self.y == other.y
+
     def __str__(self):
         return f"({self.x}; {self.y})"
 
@@ -26,6 +29,9 @@ class Segment:
     def __init__(self, begin, end):
         self.begin = min(begin, end)
         self.end = max(begin, end)
+
+    def __eq__(self, other):
+        return self.begin == other.begin and self.end == other.end
 
     def __str__(self):
         return f"{self.begin} -> {self.end}"
