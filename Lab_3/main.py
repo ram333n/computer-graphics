@@ -132,8 +132,7 @@ class Event:
         self.event_type = event_type
 
     def __eq__(self, other):
-        return (self.point, self.segments, self.event_type) \
-               == (other.point, other.segments, other.event_type)
+        return self.point == other.point
 
     def __lt__(self, other):
         return self.point < other.point
@@ -187,11 +186,11 @@ class StatusStructure:
         if lhs not in self.segments and rhs not in self.segments:
             return
 
-        self.tree.remove(self.segments[lhs])
-        self.tree.remove(self.segments[rhs])
+        lhs_node = self.segments[lhs]
+        rhs_node = self.segments[rhs]
 
-        self.insert(rhs)  # we insert rhs first to keep order after intersection
-        self.insert(lhs)
+        lhs_node.value, rhs_node.value = rhs_node.value, lhs_node.value
+        self.segments[lhs], self.segments[rhs] = rhs_node, lhs_node
 
 
 class IntersectionDeterminator:
@@ -223,12 +222,17 @@ class IntersectionDeterminator:
 
     def __find_intersections(self):
         result = []
-        intersected_segments = []
+        counter = 0
 
         while len(self.event_queue) != 0:
             cur_event = heapq.heappop(self.event_queue)
             cur_point = cur_event.point
             self.status.set_x(cur_point.x)
+
+            print(cur_event.event_type)
+            print(f"Point:{cur_point}")
+
+            # print(len(self.event_queue))
 
             if cur_event.event_type == EventType.BEGIN:
                 segment = cur_event.segments[0]
@@ -241,57 +245,80 @@ class IntersectionDeterminator:
                 below_current = Utils.find_intersection(segment_below, segment)
 
                 if above_current is not None:
-                    intersected_segments.append((segment, segment_above))
+                    self.__add_event(
+                        Event(above_current, (segment, segment_above), EventType.INTERSECTION)
+                    )
 
                 if below_current is not None:
-                    intersected_segments.append((segment_below, segment))
+                    self.__add_event(
+                        Event(below_current, (segment_below, segment), EventType.INTERSECTION)
+                    )
 
             elif cur_event.event_type == EventType.END:
                 segment = cur_event.segments[0]
                 segment_above = self.status.next(segment)
                 segment_below = self.status.prev(segment)
 
-                above_below = Utils.find_intersection(segment_above, segment_below)
-
-                if above_below is not None and cur_point < above_below:
-                    intersected_segments.append((segment_below, segment_above))
-
                 self.status.delete(segment)
 
+                above_below = Utils.find_intersection(segment_above, segment_below)
+
+                if above_below is not None and cur_point.x < above_below.x and self.__is_not_in_queue(above_below):
+                    self.__add_event(
+                        Event(above_below, (segment_below, segment_above), EventType.INTERSECTION)
+                    )
+
             elif cur_event.event_type == EventType.INTERSECTION:
+                counter += 1
+                result.append(cur_point)
+
                 lhs, rhs = cur_event.segments
+                self.status.swap(lhs, rhs)  # lhs < rhs -> rhs < lhs
 
                 segment_above = self.status.next(lhs)
                 segment_below = self.status.prev(rhs)
 
-                above_rhs = Utils.find_intersection(segment_above, rhs)
-                below_lhs = Utils.find_intersection(segment_below, lhs)
+                above_lhs = Utils.find_intersection(segment_above, lhs)
+                below_rhs = Utils.find_intersection(segment_below, rhs)
 
-                if above_rhs is not None and cur_point < above_rhs:
-                    intersected_segments.append((segment_above, rhs))
+                print(f"INTERSECT 1: {lhs}")
+                print(f"INTERSECT 2: {rhs}")
+                print(f"ABOVE: {segment_above}")
+                print(f"BELOW: {segment_below}")
 
-                if below_lhs is not None and cur_point < below_lhs:
-                    intersected_segments.append((lhs, segment_below))
+                # print(f"ABOVE_LHS_QUEUE: {self.__is_not_in_queue(above_lhs)}")
+                # print(f"BELOW_RHS_QUEUE: {self.__is_not_in_queue(below_rhs)}")
 
-                self.status.swap(lhs, rhs)
+                if above_lhs is not None and cur_point.x < above_lhs.x and self.__is_not_in_queue(above_lhs):
+                    print(f"ABOVE_LHS_QUEUE: {self.__is_not_in_queue(above_lhs)}")
+                    self.__add_event(
+                        Event(above_lhs, (lhs, segment_above), EventType.INTERSECTION)
+                    )
+
+                if below_rhs is not None and cur_point.x < below_rhs.x and self.__is_not_in_queue(below_rhs):
+                    print('afsafs')
+                    self.__add_event(
+                        Event(below_rhs, (segment_below, rhs), EventType.INTERSECTION)
+                    )
+
+                self.status.tree.inorder(self.status.tree.root)
+
+                # if counter == 14:
+                #    break
 
             else:
                 raise Exception("Unknown event")
 
-            while len(intersected_segments) != 0:
-                lhs, rhs = intersected_segments.pop()
-                intersection = Utils.find_intersection(lhs, rhs)
-                event = Event(intersection, (lhs, rhs), EventType.INTERSECTION)
-
-                if event not in self.event_queue:
-                    result.append(intersection)
-                    self.__add_event(event)
-
         return result
 
+    def __is_not_in_queue(self, point):
+        return next(
+            (e for e in self.event_queue if e.point == point),
+            None
+        ) is None
+
     def __add_event(self, event):
-        self.event_queue.append(event)
-        heapq.heapify(self.event_queue)
+        heapq.heappush(self.event_queue, event)
 
     def __plot_intersections(self, intersections):
         for point in intersections:
@@ -320,7 +347,9 @@ def main():
         create_segment(-2, 1, 3, 0),
         create_segment(3, 5, -3, -1),
         create_segment(-0.5, -1, 0, 3),
-        create_segment(0, 4, 1, 7)
+        create_segment(0, 4, 1, 7),
+        create_segment(-4, -0.5, 3, -0.5),
+        create_segment(-1, 4.5, 1.5, 0)
     ]
 
     intersection_determinator = IntersectionDeterminator(segments)

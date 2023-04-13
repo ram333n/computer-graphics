@@ -102,7 +102,7 @@ class BSTree:
     def __minimum(self, node):
         current = node
 
-        while current is not None:
+        while current.left is not None:
             current = current.left
 
         return current
@@ -122,7 +122,15 @@ class BSTree:
     def __maximum(self, node):
         current = node
 
-        while current is not None:
+        while current.right is not None:
             current = current.right
 
         return current
+
+    def inorder(self, node):
+        if node is None:
+            return
+
+        self.inorder(node.left)
+        print(node.value)
+        self.inorder(node.right)
