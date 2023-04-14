@@ -37,17 +37,6 @@ class BSTree:
 
         return to_insert
 
-    def find(self, value, key):
-        current = self.root
-
-        while current is not None and key(value) != key(current.value):
-            if key(value) < key(current.value):
-                current = current.left
-            else:
-                current = current.right
-
-        return current
-
     def remove(self, node):
         if node is None:
             return
@@ -126,11 +115,3 @@ class BSTree:
             current = current.right
 
         return current
-
-    def inorder(self, node):
-        if node is None:
-            return
-
-        self.inorder(node.left)
-        print(node.value)
-        self.inorder(node.right)
