@@ -67,9 +67,6 @@ class Segment:
 
         return k, b
 
-    def compare_in_x(self, other, x):
-        return self.value(x) < other.value(x)
-
     def projections_contain(self, point):
         x_begin, x_end = self.__projection("x")
         y_begin, y_end = self.__projection("y")
@@ -348,8 +345,6 @@ def main():
 
     intersection_determinator = IntersectionDeterminator(segments)
     intersection_determinator.demo()
-
-    plt.show()
 
 
 if __name__ == "__main__":
